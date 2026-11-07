@@ -2,6 +2,7 @@ extends Control
 
 const UIKit = preload("res://scripts/ui_kit.gd")
 const Credits = preload("res://scripts/credits.gd")
+const SettingsMenu = preload("res://scripts/settings_menu.gd")
 const GAME_SCENE := "res://scenes/main.tscn"
 
 
@@ -10,8 +11,9 @@ func _ready() -> void:
 	get_tree().paused = false
 
 	var box := UIKit.screen(self, Color(0.03, 0.02, 0.05))
+	box.add_theme_constant_override("separation", 12)
 	box.add_child(UIKit.label("~  THE LANTERNS NEVER GO OUT  ~", 18, Color(UIKit.GOLD, 0.8)))
-	box.add_child(UIKit.title("Hollow Matsuri", 76))
+	box.add_child(UIKit.title("Hollow Matsuri", 62))
 	box.add_child(UIKit.label("Win their games. Earn points. Open the gate and run.", 22, Color(0.85, 0.78, 0.68)))
 	box.add_child(UIKit.divider())
 
@@ -23,9 +25,16 @@ func _ready() -> void:
 	else:
 		first = UIKit.button("New game", _on_new_game, true)
 		box.add_child(first)
+	box.add_child(UIKit.button("Settings", _open_settings))
 	box.add_child(UIKit.button("Credits", func(): add_child(Credits.new())))
 	box.add_child(UIKit.button("Quit", func(): get_tree().quit()))
 	first.grab_focus.call_deferred()
+
+
+func _open_settings() -> void:
+	var s := SettingsMenu.new()
+	s.closed.connect(func(): get_tree().change_scene_to_file("res://scenes/menu.tscn"))
+	add_child(s)
 
 
 func _on_continue() -> void:

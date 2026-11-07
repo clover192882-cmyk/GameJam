@@ -5,6 +5,20 @@ const CREAM := Color(0.95, 0.93, 0.88)
 const RED := Color(0.62, 0.14, 0.16)
 const RED_DARK := Color(0.1, 0.02, 0.04)
 const INK := Color(0.04, 0.07, 0.14, 0.86)
+const HUD_BG := Color(0.03, 0.05, 0.11, 0.84)
+const GOOD := Color(0.55, 0.85, 0.5)
+const DISPLAY_FONT := preload("res://assets/fonts/Cinzel.ttf")
+
+static var _display: FontVariation
+
+
+# Titles, headings and buttons use the display face; body text keeps the default for readability.
+static func display_font() -> FontVariation:
+	if _display == null:
+		_display = FontVariation.new()
+		_display.base_font = DISPLAY_FONT
+		_display.variation_opentype = {"wght": 700}
+	return _display
 
 
 static func panel_style(bg := INK, border := Color(GOLD, 0.55), radius := 14, margin := 14) -> StyleBoxFlat:
@@ -89,8 +103,15 @@ static func label(text: String, font_size: int, color := CREAM) -> Label:
 	return l
 
 
+static func heading(text: String, font_size: int, color := GOLD) -> Label:
+	var l := label(text, font_size, color)
+	l.add_theme_font_override("font", display_font())
+	return l
+
+
 static func title(text: String, font_size: int) -> Label:
 	var l := label(text, font_size, GOLD)
+	l.add_theme_font_override("font", display_font())
 	l.add_theme_color_override("font_outline_color", RED_DARK)
 	l.add_theme_constant_override("outline_size", font_size / 5)
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
@@ -98,24 +119,54 @@ static func title(text: String, font_size: int) -> Label:
 	return l
 
 
-static func divider() -> ColorRect:
-	var r := ColorRect.new()
-	r.color = Color(GOLD, 0.45)
-	r.custom_minimum_size = Vector2(0, 2)
-	return r
+# A thin rule with a small diamond in the middle.
+class Ornament extends Control:
+	func _init() -> void:
+		custom_minimum_size = Vector2(0, 14)
+
+	func _draw() -> void:
+		var c := Color(GOLD, 0.55)
+		var mid := Vector2(size.x / 2.0, size.y / 2.0)
+		draw_line(Vector2(0, mid.y), Vector2(mid.x - 14, mid.y), c, 2.0)
+		draw_line(Vector2(mid.x + 14, mid.y), Vector2(size.x, mid.y), c, 2.0)
+		draw_colored_polygon(PackedVector2Array([mid + Vector2(0, -7), mid + Vector2(7, 0), mid + Vector2(0, 7), mid + Vector2(-7, 0)]), Color(GOLD, 0.9))
+
+
+static func divider() -> Control:
+	return Ornament.new()
+
+
+# A small card listing the controls, shown on the menu and pause screens.
+static func controls_card(compact := false) -> Control:
+	var move: String = Settings.movement_name()
+	var rows := [[move, "Move"], ["Double-tap " + move, "Sprint"], [Settings.key_name("jump"), "Jump"], [Settings.key_name("interact"), "Interact"],
+		[Settings.key_name("toggle_view"), "Change view"], ["Hold Tab", "Show cursor"], ["Esc", "Pause"]]
+	var grid := GridContainer.new()
+	grid.columns = 4 if not compact else 2
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 4)
+	for r in rows:
+		var k := label(r[0], 15, GOLD)
+		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		var a := label(r[1], 15, Color(CREAM, 0.8))
+		a.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		grid.add_child(k)
+		grid.add_child(a)
+	return grid
 
 
 # Pill-style backdrop for HUD text that sits over the 3D scene.
-static func pill(l: Label, bg := Color(0.04, 0.07, 0.14, 0.72)) -> void:
+static func pill(l: Label, bg := HUD_BG) -> void:
 	l.add_theme_stylebox_override("normal", panel_style(bg, Color(GOLD, 0.45), 18, 12))
 
 
 static func button(text: String, callback: Callable, primary := false) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(340, 62)
+	b.custom_minimum_size = Vector2(340, 54)
 	b.focus_mode = Control.FOCUS_ALL
-	b.add_theme_font_size_override("font_size", 28)
+	b.add_theme_font_size_override("font_size", 26)
+	b.add_theme_font_override("font", display_font())
 	b.add_theme_color_override("font_color", CREAM)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
 	b.add_theme_color_override("font_pressed_color", GOLD)

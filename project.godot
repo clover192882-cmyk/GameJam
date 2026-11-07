@@ -17,6 +17,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+Settings="*res://scripts/settings.gd"
 PointManager="*res://scripts/point_manager.gd"
 StallManager="*res://scripts/stall_manager.gd"
 DifficultyManager="*res://scripts/difficulty_manager.gd"

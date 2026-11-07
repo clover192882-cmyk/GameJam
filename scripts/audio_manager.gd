@@ -34,6 +34,7 @@ func _ready() -> void:
 	_drone = AudioStreamPlayer.new()
 	_drone.stream = _loop(_tone([55.0, 55.7, 82.4], 4.0, 0.25, 0.0, 0.03))
 	_drone.volume_db = -22.0
+	_drone.bus = Settings.MUSIC_BUS
 	add_child(_drone)
 	_drone.play()
 
@@ -42,19 +43,23 @@ func _ready() -> void:
 	_music = AudioStreamPlayer.new()
 	_music.stream = music
 	_music.volume_db = -17.0
+	_music.bus = Settings.MUSIC_BUS
 	_music.pitch_scale = 0.62
 	add_child(_music)
 	_music.play()
 
 	for i in POOL_SIZE:
 		var p := AudioStreamPlayer.new()
+		p.bus = Settings.SFX_BUS
 		add_child(p)
 		_pool.append(p)
 
 	_sfx = AudioStreamPlayer.new()
+	_sfx.bus = Settings.SFX_BUS
 	add_child(_sfx)
 	_eerie = AudioStreamPlayer.new()
 	_eerie.volume_db = -10.0
+	_eerie.bus = Settings.MUSIC_BUS
 	add_child(_eerie)
 
 	_timer = Timer.new()
