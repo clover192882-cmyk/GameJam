@@ -23,6 +23,8 @@ var _bob_phase := 0.0
 var _bob_amp := 0.0
 var _crouch := 0.0
 var _land_dip := 0.0
+var _land_hold := 0.0
+var _air_vy := 0.0
 var _was_on_floor := true
 var _base_fov := 75.0
 var fov_extra := 0.0
@@ -99,8 +101,11 @@ func _physics_process(delta: float) -> void:
 
 func _update_camera(delta: float, speed: float) -> void:
 	var on_floor := is_on_floor()
-	if on_floor and not _was_on_floor:
-		_land_dip = clampf(absf(velocity.y) / 12.0 + 0.04, 0.05, 0.18)
+	if not on_floor:
+		_air_vy = velocity.y
+	elif not _was_on_floor:
+		_land_dip = clampf(absf(_air_vy) / 14.0 + 0.12, 0.2, 0.28)
+		_land_hold = 0.12
 	_was_on_floor = on_floor
 
 	var moving := on_floor and movement_enabled and speed > 0.3
@@ -114,7 +119,10 @@ func _update_camera(delta: float, speed: float) -> void:
 	if _jump_timer >= 0.0:
 		crouch_target = 0.28
 	_crouch = lerpf(_crouch, crouch_target, minf(delta * 16.0, 1.0))
-	_land_dip = lerpf(_land_dip, 0.0, minf(delta * 9.0, 1.0))
+	if _land_hold > 0.0:
+		_land_hold -= delta
+	else:
+		_land_dip = lerpf(_land_dip, 0.0, minf(delta * 7.0, 1.0))
 
 	var offset := Vector3(sin(_bob_phase) * _bob_amp * 0.6, absf(sin(_bob_phase)) * _bob_amp - _bob_amp * 0.5, 0.0)
 	offset.y -= _crouch + _land_dip
@@ -122,6 +130,7 @@ func _update_camera(delta: float, speed: float) -> void:
 		offset = Vector3.ZERO
 		_crouch = 0.0
 		_land_dip = 0.0
+		_land_hold = 0.0
 	_cam_bob = _cam_bob.lerp(offset, minf(delta * 20.0, 1.0))
 	cam.position = _cam_bob
 	cam.rotation.z = lerpf(cam.rotation.z, -sin(_bob_phase) * _bob_amp * 0.25 if moving else 0.0, minf(delta * 8.0, 1.0))
