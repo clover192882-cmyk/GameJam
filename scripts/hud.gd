@@ -6,9 +6,7 @@ const UIKit = preload("res://scripts/ui_kit.gd")
 const STALL_TITLES := {"dart": "Dart Balloon", "goldfish": "Goldfish Scooping", "cork": "Cork Gun Gallery"}
 
 var _hearts: Array[Control] = []
-var _progress_rows: VBoxContainer
-var _shown_points := -1
-var _points_tween: Tween
+var _progress_label: Label
 var _progress_panel: Control
 
 @onready var points_label: Label = $PointsLabel
@@ -47,7 +45,6 @@ func _style_labels() -> void:
 	prompt_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	prompt_label.offset_top = -70.0
 	prompt_label.offset_bottom = -50.0
-	prompt_label.add_theme_font_size_override("font_size", 24)
 	prompt_label.visible = false
 	game_over_label.add_theme_font_size_override("font_size", 84)
 
@@ -71,6 +68,24 @@ class HeartIcon extends Control:
 			draw_polyline(PackedVector2Array([Vector2(s * 0.5, s * 0.15), Vector2(s * 0.42, s * 0.4), Vector2(s * 0.58, s * 0.58), Vector2(s * 0.5, s * 0.85)]), Color.BLACK, 2.0)
 
 
+class PauseIcon extends Control:
+	func _init() -> void:
+		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var button := get_parent() as BaseButton
+		var hovered: bool = button != null and button.is_hovered()
+		var c: Color = Color.WHITE if hovered else Color(0.95, 0.92, 0.82)
+		var bar := Vector2(7.0, 22.0)
+		var origin := (size - Vector2(bar.x * 2.0 + 8.0, bar.y)) / 2.0
+		draw_rect(Rect2(origin, bar), c)
+		draw_rect(Rect2(origin + Vector2(bar.x + 8.0, 0.0), bar), c)
+
+	func _process(_delta: float) -> void:
+		queue_redraw()
+
+
 func _build_hearts() -> void:
 	var row := HBoxContainer.new()
 	row.position = Vector2(24, 78)
@@ -85,40 +100,33 @@ func _build_hearts() -> void:
 
 func _on_health_changed(new_health: int) -> void:
 	for i in _hearts.size():
-		var was: bool = _hearts[i].full
 		_hearts[i].full = i < new_health
-		if was and not _hearts[i].full:
-			_hearts[i].pivot_offset = Vector2(17, 17)
-			var t := create_tween()
-			t.tween_property(_hearts[i], "scale", Vector2.ONE * 1.5, 0.08)
-			t.tween_property(_hearts[i], "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BOUNCE)
 
 
 func _build_pause_button() -> void:
 	var button := Button.new()
-	button.text = "Pause (Esc)"
 	button.focus_mode = Control.FOCUS_NONE
-	button.add_theme_font_size_override("font_size", 20)
-	button.add_theme_color_override("font_color", UIKit.CREAM)
-	button.add_theme_stylebox_override("normal", UIKit.panel_style(Color(0.04, 0.07, 0.14, 0.75), Color(UIKit.GOLD, 0.5), 12, 6))
-	button.add_theme_stylebox_override("hover", UIKit.panel_style(UIKit.RED, UIKit.GOLD, 12, 6))
-	button.add_theme_stylebox_override("pressed", UIKit.panel_style(UIKit.RED_DARK, UIKit.GOLD, 12, 6))
+	button.tooltip_text = "Pause (Esc)"
+	button.add_child(PauseIcon.new())
+	button.add_theme_stylebox_override("normal", UIKit.panel_style(Color(UIKit.INK, 0.8), UIKit.TRIM, 6, 6))
+	button.add_theme_stylebox_override("hover", UIKit.panel_style(UIKit.RED, UIKit.GOLD, 6, 6))
+	button.add_theme_stylebox_override("pressed", UIKit.panel_style(Color(0.5, 0.06, 0.07), Color.WHITE, 6, 6))
 	button.anchor_left = 0.5
 	button.anchor_right = 0.5
-	button.offset_left = -75.0
-	button.offset_right = 75.0
+	button.offset_left = -26.0
+	button.offset_right = 26.0
 	button.offset_top = 12.0
-	button.offset_bottom = 52.0
+	button.offset_bottom = 58.0
 	button.pressed.connect(func(): pause_requested.emit())
 	add_child(button)
 
 	var hint := Label.new()
-	hint.text = "Hold Tab: cursor   |   %s: view" % Settings.key_name("toggle_view")
+	hint.text = "Hold Tab to show the cursor  |  V: change view"
 	hint.anchor_left = 0.5
 	hint.anchor_right = 0.5
 	hint.offset_left = -220.0
 	hint.offset_right = 220.0
-	hint.offset_top = 54.0
+	hint.offset_top = 62.0
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_font_size_override("font_size", 14)
 	hint.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9, 0.75))
@@ -137,74 +145,44 @@ func _build_progress_panel() -> void:
 	panel.offset_top = 12.0
 	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_theme_stylebox_override("panel", UIKit.panel_style(Color(0.04, 0.07, 0.14, 0.72), Color(UIKit.GOLD, 0.45), 14, 12))
+	panel.add_theme_stylebox_override("panel", UIKit.panel_style(Color(UIKit.INK, 0.8), UIKit.TRIM, 8, 12))
 	add_child(panel)
 	_progress_panel = panel
 
-	_progress_rows = VBoxContainer.new()
-	_progress_rows.add_theme_constant_override("separation", 5)
-	panel.add_child(_progress_rows)
+	_progress_label = Label.new()
+	_progress_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_progress_label.add_theme_font_size_override("font_size", 18)
+	_progress_label.add_theme_color_override("font_color", Color(0.95, 0.93, 0.88))
+	panel.add_child(_progress_label)
 
 
 func set_progress_visible(shown: bool) -> void:
 	_progress_panel.visible = shown
 
 
-func _add_row(mark: String, mark_color: Color, title: String, detail: String, dim := false) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	row.alignment = BoxContainer.ALIGNMENT_END
-	var alpha := 0.6 if dim else 1.0
-	var d := UIKit.label(detail, 16, Color(UIKit.CREAM, 0.7 * alpha))
-	d.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	var t := UIKit.label(title, 18, Color(UIKit.CREAM, alpha))
-	var m := UIKit.label(mark, 18, mark_color)
-	m.custom_minimum_size = Vector2(22, 0)
-	row.add_child(d)
-	row.add_child(t)
-	row.add_child(m)
-	_progress_rows.add_child(row)
-
-
 func _refresh_progress() -> void:
-	for c in _progress_rows.get_children():
-		_progress_rows.remove_child(c)
-		c.queue_free()
+	var lines: Array[String] = []
 	for id in ["dart", "goldfish", "cork"]:
 		var title: String = STALL_TITLES[id]
 		if not StallManager.is_unlocked(id):
-			_add_row("x", Color(UIKit.CREAM, 0.45), title, "locked - %d pts" % StallManager.cost_of(id), true)
+			lines.append("%s - locked, %d pts" % [title, StallManager.cost_of(id)])
 			continue
-		var done := StallManager.is_completed(id)
-		var detail := DifficultyManager.level_name(DifficultyManager.selected(id))
+		var mark := "[done] " if StallManager.is_completed(id) else ""
+		var line := "%s%s - %s" % [mark, title, DifficultyManager.level_name(DifficultyManager.selected(id))]
 		var next_cost := DifficultyManager.next_unlock_cost(id)
 		if next_cost >= 0:
-			detail += "  |  next level %d pts" % next_cost
-		_add_row("v" if done else "o", UIKit.GOOD if done else UIKit.GOLD, title, detail)
+			line += " | next level %d pts" % next_cost
+		lines.append(line)
 	if StallManager.gate_open:
-		_add_row("*", UIKit.GOOD, "Gate", "OPEN - walk out to win")
+		lines.append("Gate - OPEN, walk out to win")
 	else:
-		_add_row("x", Color(UIKit.CREAM, 0.45), "Gate", "locked - %d pts" % StallManager.GATE_COST, true)
+		lines.append("Gate - locked, %d pts" % StallManager.GATE_COST)
+	_progress_label.text = "\n".join(lines)
 
 
-func _on_points_changed(new_points: int, delta: int) -> void:
+func _on_points_changed(new_points: int, _delta: int) -> void:
 	points_label.text = "Points: %d" % new_points
 	_refresh_progress()
-	if delta != 0 and _shown_points >= 0:
-		_flash_points(delta)
-	_shown_points = new_points
-
-
-func _flash_points(delta: int) -> void:
-	var tint := UIKit.GOOD if delta > 0 else Color(1.0, 0.45, 0.4)
-	points_label.pivot_offset = Vector2(0, points_label.size.y / 2.0)
-	if _points_tween:
-		_points_tween.kill()
-	points_label.scale = Vector2.ONE * 1.12
-	points_label.add_theme_color_override("font_color", tint)
-	_points_tween = create_tween().set_parallel(true)
-	_points_tween.tween_property(points_label, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_points_tween.tween_method(func(t: float): points_label.add_theme_color_override("font_color", tint.lerp(UIKit.CREAM, t)), 0.0, 1.0, 0.9)
 
 
 func _on_game_over() -> void:

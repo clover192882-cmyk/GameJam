@@ -72,7 +72,13 @@ func _hook_audio() -> void:
 		_game.dart_resolved.connect(func(hit): audio.play("balloon_pop" if hit else "dart_hit"))
 		_game.dart_thrown.connect(func(): audio.play("dart_throw"))
 	elif _game.has_signal("shot_fired"):
-		_game.shot_fired.connect(func(hit): audio.play("pop" if hit else "shot"))
+		_game.reload_started.connect(func(): audio.play("reload"))
+		_game.shot_fired.connect(func(hit):
+			audio.play("gunshot")
+			if hit:
+				get_tree().create_timer(0.12).timeout.connect(func(): audio.play("quack")))
+	elif _game.has_signal("sfx"):
+		_game.sfx.connect(audio.play)
 	else:
 		audio.play("splash")
 

@@ -2,6 +2,17 @@ extends Node3D
 
 const Build = preload("res://scripts/build.gd")
 const Gate = preload("res://scripts/gate.gd")
+const CarModel = preload("res://scripts/car_model.gd")
+const Fireflies = preload("res://scripts/fireflies.gd")
+
+const ROAD_X := 28.0
+const ROAD_W := 6.0
+const CAR_POS := Vector2(23.6, 0.0)
+const FOREST_TREES := 700
+const FOREST_BUSHES := 350
+const FOREST_PINES := 450
+const PINE_PATH := "res://assets/models/pine.glb"
+const PINE_HEIGHT := 5.5
 
 const HALF_X := 12.0
 const HALF_Z := 9.0
@@ -232,6 +243,8 @@ func _build_trees(rng: RandomNumberGenerator, spots: Array[Vector2], segments: A
 
 	# transforms[solid][part]: inner trees cast shadows and block the player; the outer forest is scenery only.
 	var transforms := {true: [[], [], [], []], false: [[], [], [], []]}
+	var pine := _load_pine()
+	var pine_spots := {true: [] as Array[Transform3D], false: [] as Array[Transform3D]}
 
 	var cell := 2.6
 	var x := -HALF_X + 1.2
@@ -241,7 +254,11 @@ func _build_trees(rng: RandomNumberGenerator, spots: Array[Vector2], segments: A
 			var p := Vector2(x + rng.randf_range(-0.8, 0.8), z + rng.randf_range(-0.8, 0.8))
 			var keep := rng.randf() < 0.75
 			if keep and _tree_spot_free(p, spots, segments):
-				_tree(p, rng.randf_range(0.8, 1.5), meshes, transforms[true], true)
+				var s := rng.randf_range(0.8, 1.5)
+				if pine.is_empty():
+					_tree(p, s, meshes, transforms[true], true)
+				else:
+					_pine_tree(p, s * 0.55, rng.randf() * TAU, pine_spots[true], true)
 			z += cell
 		x += cell
 
@@ -253,10 +270,26 @@ func _build_trees(rng: RandomNumberGenerator, spots: Array[Vector2], segments: A
 			var p := Vector2(x + rng.randf_range(-1.2, 1.2), z + rng.randf_range(-1.2, 1.2))
 			var inside_fence := absf(p.x) < HALF_X + 1.8 and absf(p.y) < HALF_Z + 1.8
 			var gate_lane := p.x > 0.0 and absf(p.y) < 5.0
+			var near_road := p.x > ROAD_X - ROAD_W / 2.0 - 4.0
 			if not inside_fence and not gate_lane and rng.randf() < 0.8:
-				_tree(p, rng.randf_range(1.0, 2.0), meshes, transforms[false], false)
+				var s := rng.randf_range(1.0, 2.0)
+				if pine.is_empty():
+					_tree(p, s, meshes, transforms[false], false)
+				elif not near_road:
+					_pine_tree(p, s * 0.7, rng.randf() * TAU, pine_spots[false], false)
 			z += outer
 		x += outer
+
+	if not pine.is_empty():
+		for solid in [true, false]:
+			var list: Array[Transform3D] = pine_spots[solid]
+			if list.is_empty():
+				continue
+			for part in pine["parts"]:
+				var inst := _scatter(part[0], null, list, Vector3.ZERO, [], part[1])
+				if not solid:
+					inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		return
 
 	for solid in [true, false]:
 		for part in meshes.size():
@@ -289,6 +322,21 @@ func _tree_spot_free(p: Vector2, spots: Array[Vector2], segments: Array) -> bool
 		if _segment_distance(p, seg[0], seg[1]) < seg[2] / 2.0 + 1.1:
 			return false
 	return true
+
+
+func _pine_tree(p: Vector2, scale_factor: float, yaw: float, out: Array[Transform3D], solid: bool) -> void:
+	out.append(Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * scale_factor), Vector3(p.x, 0, p.y)))
+	if solid:
+		var body := StaticBody3D.new()
+		body.position = Vector3(p.x, 0, p.y)
+		var shape := CollisionShape3D.new()
+		var cyl := CylinderShape3D.new()
+		cyl.radius = 0.3
+		cyl.height = 2.0
+		shape.shape = cyl
+		shape.position.y = 1.0
+		body.add_child(shape)
+		add_child(body)
 
 
 func _tree(p: Vector2, scale_factor: float, meshes: Array[Mesh], out: Array, solid: bool) -> void:
@@ -393,11 +441,143 @@ func _build_collision() -> void:
 
 
 func _build_car() -> void:
-	var car := Node3D.new()
-	car.position = Vector3(0, 0, 7.6)
+	var car := CarModel.make()
+	car.name = "EscapeCar"
+	car.position = Vector3(CAR_POS.x, 0.0, CAR_POS.y)
+	car.rotation.y = PI
 	add_child(car)
-	Build.box(car, Vector3(0, 0.6, 0), Vector3(4.0, 1.0, 1.9), Color(0.08, 0.09, 0.12), true)
-	Build.box(car, Vector3(0.2, 1.4, 0), Vector3(2.0, 0.7, 1.7), Color(0.06, 0.07, 0.1), true)
-	Build.box(car, Vector3(-2.0, 0.65, -0.6), Vector3(0.05, 0.2, 0.3), Color(1.0, 0.9, 0.6), false, 3.0)
-	Build.box(car, Vector3(-2.0, 0.65, 0.6), Vector3(0.05, 0.2, 0.3), Color(1.0, 0.9, 0.6), false, 3.0)
+	CarModel.add_headlights(car, false)
+	_build_outside()
 
+
+# Dirt ground, a road running north-south past the gate, and a dense pine forest around it.
+func _build_outside() -> void:
+	var flies := Fireflies.new()
+	flies.name = "Fireflies"
+	add_child(flies)
+	var grass := Color(0.05, 0.085, 0.045)
+	Build.box(self, Vector3(77.0, -0.27, 0), Vector3(130.0, 0.5, 340.0), grass, false)
+	Build.box(self, Vector3(ROAD_X, -0.24, 0), Vector3(ROAD_W, 0.5, 340.0), Color(0.12, 0.12, 0.14), false)
+	for i in 68:
+		Build.box(self, Vector3(ROAD_X, 0.015, -165.0 + i * 5.0), Vector3(0.14, 0.02, 2.2), Color(0.75, 0.68, 0.38), false, 0.2)
+	for side in [-1.0, 1.0]:
+		Build.box(self, Vector3(ROAD_X + side * (ROAD_W / 2.0 + 0.08), 0.0, 0), Vector3(0.12, 0.02, 340.0), Color(0.55, 0.52, 0.45), false)
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	var pine := _load_pine()
+	var spots: Array[Transform3D] = []
+	var spot_colors: Array[Color] = []
+	var tries := 0
+	var tree_count := FOREST_TREES if pine.is_empty() else FOREST_PINES
+	while spots.size() < tree_count and tries < tree_count * 8:
+		tries += 1
+		var p := Vector2(rng.randf_range(13.5, 135.0), rng.randf_range(-160.0, 160.0))
+		var tall := rng.randf_range(0.8, 1.9) if pine.is_empty() else rng.randf_range(0.8, 1.4)
+		var canopy: float = 1.5 * tall if pine.is_empty() else pine["radius"] * tall
+		if absf(p.x - ROAD_X) < ROAD_W / 2.0 + canopy + 1.2:
+			continue
+		if p.x < 31.0 and absf(p.y) < 17.0:
+			continue
+		var too_close := false
+		for s in spots:
+			if Vector2(s.origin.x, s.origin.z).distance_to(p) < 1.6:
+				too_close = true
+				break
+		if too_close:
+			continue
+		var tree_basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * tall)
+		spots.append(Transform3D(tree_basis, Vector3(p.x, 0.0, p.y)))
+		var shade := rng.randf_range(0.7, 1.25)
+		spot_colors.append(Color(0.04 * shade, 0.13 * shade, 0.07 * shade))
+
+	if not pine.is_empty():
+		for part in pine["parts"]:
+			_scatter(part[0], null, spots, Vector3.ZERO, [], part[1])
+	else:
+		var trunk := CylinderMesh.new()
+		trunk.top_radius = 0.16
+		trunk.bottom_radius = 0.26
+		trunk.height = 2.2
+		var trunk_mat := StandardMaterial3D.new()
+		trunk_mat.albedo_color = Color(0.14, 0.09, 0.06)
+		_scatter(trunk, trunk_mat, spots, Vector3(0, 1.1, 0), [])
+		var leaf_mat := StandardMaterial3D.new()
+		leaf_mat.vertex_color_use_as_albedo = true
+		for k in 4:
+			var cone := CylinderMesh.new()
+			cone.top_radius = 0.0
+			cone.bottom_radius = 1.6 - k * 0.36
+			cone.height = 1.9
+			_scatter(cone, leaf_mat, spots, Vector3(0, 2.0 + k * 0.95, 0), spot_colors)
+
+	var bush := SphereMesh.new()
+	bush.radius = 0.6
+	bush.height = 0.9
+	var bush_mat := StandardMaterial3D.new()
+	bush_mat.vertex_color_use_as_albedo = true
+	var bushes: Array[Transform3D] = []
+	var bush_colors: Array[Color] = []
+	var attempts := 0
+	while bushes.size() < FOREST_BUSHES and attempts < FOREST_BUSHES * 6:
+		attempts += 1
+		var q := Vector2(rng.randf_range(13.5, 135.0), rng.randf_range(-160.0, 160.0))
+		if absf(q.x - ROAD_X) < ROAD_W / 2.0 + 1.0 or (q.x < 31.0 and absf(q.y) < 17.0):
+			continue
+		var sz := rng.randf_range(0.6, 1.4)
+		bushes.append(Transform3D(Basis.IDENTITY.scaled(Vector3(sz * 1.3, sz, sz * 1.3)), Vector3(q.x, 0.25 * sz, q.y)))
+		bush_colors.append(Color(0.04, rng.randf_range(0.1, 0.17), 0.05))
+	_scatter(bush, bush_mat, bushes, Vector3.ZERO, bush_colors)
+
+
+func _scatter(mesh: Mesh, mat: Material, spots: Array[Transform3D], local: Vector3, colors: Array, part := Transform3D.IDENTITY) -> MultiMeshInstance3D:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = not colors.is_empty()
+	mm.mesh = mesh
+	mm.instance_count = spots.size()
+	for i in spots.size():
+		var xf := spots[i] * part
+		xf.origin += xf.basis * local
+		mm.set_instance_transform(i, xf)
+		if mm.use_colors:
+			mm.set_instance_color(i, colors[i])
+	var inst := MultiMeshInstance3D.new()
+	inst.multimesh = mm
+	if mat:
+		inst.material_override = mat
+	add_child(inst)
+	return inst
+
+
+# Collects the pine's meshes with transforms that stand it on y = 0, centred, PINE_HEIGHT tall.
+func _load_pine() -> Dictionary:
+	if not ResourceLoader.exists(PINE_PATH):
+		return {}
+	var scene = load(PINE_PATH)
+	if not scene is PackedScene:
+		return {}
+	var root: Node3D = scene.instantiate()
+	var parts: Array = []
+	_collect_meshes(root, Transform3D.IDENTITY, parts)
+	root.free()
+	if parts.is_empty():
+		return {}
+	var bb := AABB()
+	for i in parts.size():
+		var b: AABB = parts[i][1] * parts[i][0].get_aabb()
+		bb = b if i == 0 else bb.merge(b)
+	var s := PINE_HEIGHT / maxf(bb.size.y, 0.001)
+	var c := bb.get_center()
+	var fix := Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * s), Vector3(-c.x * s, -bb.position.y * s, -c.z * s))
+	for part in parts:
+		part[1] = fix * part[1]
+	return {"parts": parts, "radius": maxf(bb.size.x, bb.size.z) * 0.5 * s * 0.8}
+
+
+func _collect_meshes(node: Node, xf: Transform3D, out: Array) -> void:
+	if node is MeshInstance3D and node.mesh:
+		out.append([node.mesh, xf])
+	for child in node.get_children():
+		if child is Node3D:
+			_collect_meshes(child, xf * child.transform, out)

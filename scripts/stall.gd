@@ -190,21 +190,21 @@ func _ready() -> void:
 func get_prompt() -> String:
 	if unlocked:
 		var level := DifficultyManager.selected(stall_id)
-		var text := "[%s] Play %s - %s (x%.2f reward)" % [Settings.key_name("interact"), stall_name, DifficultyManager.level_name(level), DifficultyManager.reward_multiplier(stall_id, level)]
+		var text := "[E] Play %s - %s (x%.2f reward)" % [stall_name, DifficultyManager.level_name(level), DifficultyManager.reward_multiplier(stall_id, level)]
 		if DifficultyManager.max_level(stall_id) > 0:
-			text += "\n[%s] Change difficulty" % Settings.key_name("difficulty_cycle")
+			text += "\n[Q] Change difficulty"
 		var next_cost := DifficultyManager.next_unlock_cost(stall_id)
 		if next_cost >= 0:
 			var next_name := DifficultyManager.level_name(DifficultyManager.max_level(stall_id) + 1)
 			if PointManager.can_afford(next_cost):
-				text += "\n[%s] Unlock %s for %d points" % [Settings.key_name("difficulty_unlock"), next_name, next_cost]
+				text += "\n[R] Unlock %s for %d points" % [next_name, next_cost]
 			else:
-				text += "\n%s needs %d points" % [next_name, next_cost + 1]
+				text += "\n%s needs %d points" % [next_name, next_cost]
 		return text
 	var cost := StallManager.cost_of(stall_id)
 	if PointManager.can_afford(cost):
-		return "[%s] Unlock %s for %d points" % [Settings.key_name("interact"), stall_name, cost]
-	return "%s locked - needs %d points" % [stall_name, cost + 1]
+		return "[E] Unlock %s for %d points" % [stall_name, cost]
+	return "%s locked - needs %d points" % [stall_name, cost]
 
 
 func _refresh() -> void:

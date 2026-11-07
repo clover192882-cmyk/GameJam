@@ -54,7 +54,7 @@ func _ready() -> void:
 	root.add_child(_crosshair)
 
 	_info = _make_label("", 28)
-	_place(_info, 0.5, 0.0, -320, 78, 320, 126)
+	_place(_info, 1.0, 0.0, -616, 16, -16, 64)
 	UIKit.pill(_info)
 	root.add_child(_info)
 
@@ -66,7 +66,7 @@ func _ready() -> void:
 
 	_result = _make_label("", 40)
 	_place(_result, 0.5, 0.5, -300, -110, 300, 110)
-	_result.add_theme_stylebox_override("normal", UIKit.panel_style(Color(0.04, 0.07, 0.14, 0.9), UIKit.GOLD, 22, 24))
+	_result.add_theme_stylebox_override("normal", UIKit.panel_style(UIKit.INK, UIKit.TRIM, 12, 24))
 	_result.hide()
 	root.add_child(_result)
 

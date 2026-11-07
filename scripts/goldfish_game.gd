@@ -1,9 +1,13 @@
 extends Node
 
 const FX = preload("res://scripts/minigame_fx.gd")
+const HandRig = preload("res://scripts/hand_rig.gd")
+const NET_R := 0.8
+const NET_SHOULDER := Vector3(1.4, 0.4, 11.0)
 
 signal round_finished(won: bool, net: int, catches: int)
 signal closed
+signal sfx(kind: String)
 
 enum S { IDLE, QTE }
 
@@ -76,6 +80,15 @@ var _thrash_t := 0.0
 var _active := false
 var _ripple_tex: GradientTexture2D
 var _rng := RandomNumberGenerator.new()
+var _net_rig: Node3D
+var _hand: Node3D
+var _net_paper_mat: StandardMaterial3D
+var _net_tears: Array[MeshInstance3D] = []
+var _net_pos := Vector3.ZERO
+var _aim := Vector2.ZERO
+var _cam: Camera3D
+var _prev_cam: Camera3D
+var _cursor := Vector2.ZERO
 
 
 func start(stall: Node3D, difficulty := 0) -> void:
@@ -85,9 +98,24 @@ func start(stall: Node3D, difficulty := 0) -> void:
 	_base_zone_w = zone_w
 	_rng.randomize()
 	_build_basin(stall)
+	_build_camera(stall)
+	_cursor = get_viewport().get_visible_rect().size / 2.0
+	poi_pos = _cursor
 	for i in _rng.randi_range(4, 6):
 		_spawn_fish()
 	_active = true
+
+
+func _build_camera(stall: Node3D) -> void:
+	_prev_cam = get_viewport().get_camera_3d()
+	_cam = Camera3D.new()
+	_cam.fov = 58.0
+	_cam.far = 200.0
+	stall.add_child(_cam)
+	var eye := BASIN_POS + Vector3(0, 6.6, 4.9) * SC
+	var focus := BASIN_POS + Vector3(0, -0.3, 0.4) * SC
+	_cam.transform = Transform3D(Basis.IDENTITY, eye).looking_at(focus, Vector3.UP)
+	_cam.make_current()
 
 
 func hud() -> Dictionary:
@@ -112,6 +140,8 @@ func forfeit() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _active:
 		return
+	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		_cursor = (_cursor + event.relative).clamp(Vector2.ZERO, get_viewport().get_visible_rect().size)
 	if event.is_action_pressed("interact"):
 		forfeit()
 		return
@@ -136,12 +166,13 @@ func _process(delta: float) -> void:
 		return
 	for f in _fish:
 		_place_fish(f, delta)
+	_update_net(delta)
 	_update_fx(delta)
 	dip = maxf(dip - delta, 0.0)
 	msg_left = maxf(msg_left - delta, 0.0)
 	var cam := get_viewport().get_camera_3d()
 	if state == S.IDLE or _caught.is_empty():
-		poi_pos = get_viewport().get_visible_rect().size / 2.0
+		poi_pos = _cursor
 		return
 	poi_pos = cam.unproject_position(_holder.to_global(_caught["pos"])) + FX.shake_unit() * 14.0
 	var small := _caught_small()
@@ -278,6 +309,101 @@ func _build_basin(stall: Node3D) -> void:
 	_ripple_tex.fill_to = Vector2(1.0, 0.5)
 	_ripple_tex.width = 64
 	_ripple_tex.height = 64
+	_build_net_hand()
+
+
+func _build_net_hand() -> void:
+	_net_rig = Node3D.new()
+	_holder.add_child(_net_rig)
+	var wood := _mat(Color(0.45, 0.3, 0.16), 0.7)
+
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = NET_R - 0.05
+	tm.outer_radius = NET_R + 0.04
+	ring.mesh = tm
+	ring.material_override = wood
+	_net_rig.add_child(ring)
+
+	var paper := MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = NET_R - 0.03
+	disc.bottom_radius = NET_R - 0.03
+	disc.height = 0.008
+	paper.mesh = disc
+	_net_paper_mat = _mat(Color(0.96, 0.93, 0.82, 0.78), 0.95)
+	_net_paper_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_net_paper_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	paper.material_override = _net_paper_mat
+	_net_rig.add_child(paper)
+
+	for i in 5:
+		var hole := MeshInstance3D.new()
+		var hm := CylinderMesh.new()
+		hm.top_radius = 0.1 + 0.03 * i
+		hm.bottom_radius = hm.top_radius
+		hm.height = 0.012
+		hole.mesh = hm
+		var hmat := _mat(Color(0.2, 0.5, 0.65, 0.5), 0.9)
+		hmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		hole.material_override = hmat
+		var a := 0.9 + i * 2.1
+		hole.position = Vector3(cos(a), 0.003, sin(a)) * (0.12 + 0.11 * (i % 3))
+		hole.visible = false
+		_net_rig.add_child(hole)
+		_net_tears.append(hole)
+
+	var handle := MeshInstance3D.new()
+	var hcm := CylinderMesh.new()
+	hcm.top_radius = 0.045
+	hcm.bottom_radius = 0.045
+	hcm.height = 2.7
+	handle.mesh = hcm
+	handle.material_override = wood
+	handle.rotation_degrees.x = 90.0
+	handle.position = Vector3(0, 0.0, NET_R + 1.3)
+	_net_rig.add_child(handle)
+
+	_hand = HandRig.make_hand()
+	_hand.scale = Vector3.ONE * 3.0
+	_hand.position = Vector3(0, 0.08, NET_R + 2.55)
+	_net_rig.add_child(_hand)
+
+	var sleeve := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.3, 0.26, 7.0)
+	sleeve.mesh = bm
+	sleeve.material_override = _mat(Color(0.08, 0.08, 0.1), 0.9)
+	sleeve.position = Vector3(0, 0.1, NET_R + 2.55 + 1.65 + 3.4)
+	_net_rig.add_child(sleeve)
+	_net_pos = Vector3(0.0, 0.55, BASIN_R * 0.6)
+	_update_net(1.0)
+
+
+func _update_net(delta: float) -> void:
+	var target: Vector3
+	var grip := 0.0
+	if state == S.QTE and not _caught.is_empty():
+		var cp: Vector3 = _caught["pos"]
+		target = Vector3(cp.x, WATER_Y - 0.12 + sin(_clock * 32.0) * 0.04, cp.z)
+		grip = 1.0
+	else:
+		var wp = _water_point()
+		if wp != null:
+			_aim = Vector2(wp.x, wp.z).limit_length(BASIN_R * 1.15)
+		var idle := Vector2(sin(_clock * 0.7), cos(_clock * 0.9)) * 0.18
+		target = Vector3(_aim.x + idle.x, 0.55 - dip * 1.7 + sin(_clock * 2.0) * 0.03, _aim.y + idle.y)
+	_net_pos = _net_pos.lerp(target, minf(delta * 16.0, 1.0))
+	var d := _net_pos - NET_SHOULDER
+	_net_rig.position = _net_pos
+	_net_rig.rotation = Vector3(0.0, atan2(-d.x, -d.z), sin(_clock * 1.6) * 0.03)
+	_hand.rotation.z = sin(_clock * 3.0) * 0.05 + grip * sin(_clock * 40.0) * 0.08
+	_hand.position.y = 0.08 + sin(_clock * 2.2) * 0.012
+	var wear := 1.0 - integrity / 100.0
+	_net_paper_mat.albedo_color = Color(0.96, 0.93, 0.82, 0.78).lerp(Color(0.6, 0.5, 0.35, 0.6), wear)
+	var holes := int((100.0 - integrity) / FAIL_COST)
+	for i in _net_tears.size():
+		_net_tears[i].visible = i < holes
 
 
 func _mesh_aabb(node: Node, xf: Transform3D) -> AABB:
@@ -419,9 +545,10 @@ func _place_fish(f: Dictionary, delta: float) -> void:
 
 func _water_point() -> Variant:
 	var cam := get_viewport().get_camera_3d()
-	var center := get_viewport().get_visible_rect().size / 2.0
-	var o: Vector3 = _holder.to_local(cam.project_ray_origin(center))
-	var n: Vector3 = _holder.global_transform.basis.inverse() * cam.project_ray_normal(center)
+	if cam == null:
+		return null
+	var o: Vector3 = _holder.to_local(cam.project_ray_origin(_cursor))
+	var n: Vector3 = _holder.global_transform.basis.inverse() * cam.project_ray_normal(_cursor)
 	if n.y > -0.001:
 		return null
 	var t := (WATER_Y - o.y) / n.y
@@ -435,6 +562,7 @@ func _try_catch() -> void:
 		_say("Nothing there...", Color(0.8, 0.8, 0.8))
 		return
 	_ripple(wp, Color(0.8, 0.95, 1.0), 0.9)
+	sfx.emit("splash")
 	var best: Dictionary = {}
 	var best_d := INF
 	for f in _fish:
@@ -448,7 +576,9 @@ func _try_catch() -> void:
 			best = f
 	if best.is_empty():
 		_say("Nothing there...", Color(0.8, 0.8, 0.8))
+		sfx.emit("thud")
 		return
+	sfx.emit("pop")
 	best["caught"] = true
 	_caught = best
 	_splash(_surface(best["pos"]), FISH_TYPES[best["type"]]["color"], 0.7)
@@ -483,6 +613,7 @@ func _new_check() -> void:
 
 
 func _qte_result(hit: bool) -> void:
+	sfx.emit("qte_hit" if hit else "buzz")
 	if not hit:
 		integrity -= FAIL_COST
 	if integrity <= 0.0:
@@ -496,6 +627,7 @@ func _qte_result(hit: bool) -> void:
 
 
 func _tear() -> void:
+	sfx.emit("tear")
 	net -= NET_BREAK_PENALTY
 	_say("SCOOP TORN!  -%d" % NET_BREAK_PENALTY, Color(1, 0.3, 0.3))
 	_splash(_surface(_caught["pos"]), Color(0.85, 0.3, 0.25), 1.0)
@@ -519,6 +651,7 @@ func _award() -> void:
 	var pts := maxi(roundi(base * integrity / 100.0 * DIFF_MULT[_level] * reward_scale), 1)
 	net += pts
 	catches += 1
+	sfx.emit("unlock")
 	_say("Caught!  %+d" % pts, Color(1, 0.9, 0.3))
 	var big: bool = not t["small"]
 	var sp := _surface(_caught["pos"])
@@ -548,6 +681,9 @@ func _finish() -> void:
 	state = S.IDLE
 	round_finished.emit(net > 0, net, catches)
 	await get_tree().create_timer(SUMMARY_SECONDS).timeout
+	if is_instance_valid(_prev_cam):
+		_prev_cam.make_current()
+	_cam.queue_free()
 	_holder.queue_free()
 	closed.emit()
 

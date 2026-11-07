@@ -7,10 +7,10 @@ const SECTIONS := [
 	["GAME DESIGN AND CODE", ["Built with Godot Engine 4"]],
 	["MODELS", [
 		"Darts by Jarlan Perez (poly.pizza) - CC BY 3.0",
+		"Car by Ignition Labs (poly.pizza) - CC BY 3.0",
 		"Goldfish and fish models from the ye_fish_duck package",
 		"(license to be confirmed)",
 	]],
-	["FONT", ["Cinzel by Natanael Gama - SIL Open Font License"]],
 	["AUDIO", ["CC0 sound effects and music from OpenGameArt", "Eerie drone and chimes synthesized in Godot"]],
 	["THANK YOU FOR PLAYING", []],
 ]

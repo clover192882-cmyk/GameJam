@@ -25,7 +25,7 @@ func _ready() -> void:
 
 	_info = _make_label("", 24)
 	UIKit.pill(_info)
-	_place(_info, 0.5, 1.0, -400, -204, 400, -164)
+	_place(_info, 1.0, 0.0, -216, 16, -16, 60)
 	root.add_child(_info)
 
 	_hint = _make_label("Aim at a fish and click to scoop it   |   SPACE in the green zone   |   E to give up", 20)
@@ -35,7 +35,7 @@ func _ready() -> void:
 
 	_result = _make_label("", 40)
 	_place(_result, 0.5, 0.5, -320, -90, 320, 90)
-	_result.add_theme_stylebox_override("normal", UIKit.panel_style(Color(0.04, 0.07, 0.14, 0.92), UIKit.GOLD, 22, 24))
+	_result.add_theme_stylebox_override("normal", UIKit.panel_style(UIKit.INK, UIKit.TRIM, 12, 24))
 	_result.hide()
 	root.add_child(_result)
 
@@ -72,13 +72,22 @@ func _draw_overlay() -> void:
 	var h: Dictionary = _game.hud()
 	var vs := _canvas.size
 	_draw_poi(h)
-	_info.text = "Time %d     Scoops %d / %d     Paper %d%%     Score %+d" % [ceili(h["time_left"]), h["nets_left"], h["max_nets"], int(h["integrity"]), h["net"]]
+	_info.text = "Score %+d" % h["net"]
+	_draw_status(h, vs)
 	if h["state"] == 1:
 		_draw_qte(h, vs)
 	if h["msg_left"] > 0.0:
 		var col: Color = h["msg_color"]
 		col.a = minf(h["msg_left"] * 2.0, 1.0)
 		_text(Vector2(0, vs.y * 0.2), h["msg"], 30, col, vs.x, HORIZONTAL_ALIGNMENT_CENTER)
+
+
+func _draw_status(h: Dictionary, vs: Vector2) -> void:
+	var x := vs.x * 0.5 - 150.0
+	_text(Vector2(x, 100), "Time: %d   Nets: %d / %d" % [ceili(h["time_left"]), h["nets_left"], h["max_nets"]], 24, Color.WHITE)
+	_canvas.draw_rect(Rect2(x, 112, 300, 14), Color(0, 0, 0, 0.6))
+	_canvas.draw_rect(Rect2(x, 112, 300.0 * float(h["integrity"]) / 100.0, 14), Color(0.9, 0.85, 0.6))
+	_text(Vector2(x + 310, 125), "Paper %d%%" % int(h["integrity"]), 18, Color.WHITE)
 
 
 func _draw_poi(h: Dictionary) -> void:
@@ -95,7 +104,7 @@ func _draw_poi(h: Dictionary) -> void:
 
 func _draw_qte(h: Dictionary, vs: Vector2) -> void:
 	var bar_w: float = h["bar_w"]
-	var bar := Rect2(vs.x * 0.5 - bar_w / 2.0, vs.y - 90.0, bar_w, 28)
+	var bar := Rect2(vs.x * 0.5 - bar_w / 2.0, vs.y - 215.0, bar_w, 28)
 	var zw: float = h["zone_w"]
 	var zc: float = h["zone_c"]
 	_canvas.draw_rect(bar, Color(0.1, 0.1, 0.12))

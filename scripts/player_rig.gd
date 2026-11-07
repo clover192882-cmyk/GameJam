@@ -152,7 +152,8 @@ func animate(delta: float, speed: float, sprinting: bool, on_floor: bool, vel_y:
 	_run = lerpf(_run, 1.0 if sprinting and speed > 4.5 else 0.0, minf(delta * 5.0, 1.0))
 	_air = lerpf(_air, 0.0 if on_floor else 1.0, minf(delta * 12.0, 1.0))
 	_wind = lerpf(_wind, 1.0 if windup >= 0.0 else 0.0, minf(delta * 18.0, 1.0))
-	_land = lerpf(_land, clampf(landing / 0.15, 0.0, 1.0), minf(delta * 20.0, 1.0))
+	var land_target := clampf(landing / 0.15, 0.0, 1.0)
+	_land = lerpf(_land, land_target, minf(delta * (24.0 if land_target > _land else 9.0), 1.0))
 	var rise := _air * clampf(vel_y / 6.0, 0.0, 1.0)
 	var fall := _air - rise
 

@@ -2,6 +2,8 @@ extends CharacterBody3D
 
 const PlayerRig = preload("res://scripts/player_rig.gd")
 const EYE_OFFSET := Vector3(0.0, 0.08, -0.22)
+const LAND_TIME := 0.3
+const LAND_RELEASE := 0.14
 
 @export var move_speed := 4.0
 @export var mouse_sensitivity := 0.0025
@@ -13,7 +15,7 @@ const EYE_OFFSET := Vector3(0.0, 0.08, -0.22)
 @export var accel := 38.0
 @export var sprint_accel := 14.0
 @export var friction := 30.0
-@export var jump_windup := 0.14
+@export var jump_windup := 0.2
 @export var bob_amount := 0.045
 @export var sprint_fov_boost := 9.0
 
@@ -23,9 +25,9 @@ var _bob_phase := 0.0
 var _bob_amp := 0.0
 var _crouch := 0.0
 var _land_dip := 0.0
-var _land_hold := 0.0
-var _air_vy := 0.0
+var _land_timer := 0.0
 var _was_on_floor := true
+var _base_fov := 75.0
 var fov_extra := 0.0
 var _rig: Node3D
 var _last_tap_key := KEY_NONE
@@ -43,7 +45,9 @@ var look_enabled := true
 
 
 func _ready() -> void:
+	_register_input_actions()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_base_fov = cam.fov
 	_rig = PlayerRig.new()
 	add_child(_rig)
 	_rig.setup(head)
@@ -98,17 +102,16 @@ func _physics_process(delta: float) -> void:
 
 func _update_camera(delta: float, speed: float) -> void:
 	var on_floor := is_on_floor()
-	if not on_floor:
-		_air_vy = velocity.y
-	elif not _was_on_floor:
-		_land_dip = clampf(absf(_air_vy) / 14.0 + 0.12, 0.2, 0.28)
-		_land_hold = 0.12
+	if on_floor and not _was_on_floor:
+		_land_dip = clampf(absf(velocity.y) / 12.0 + 0.04, 0.05, 0.18)
+		_land_timer = LAND_TIME
 	_was_on_floor = on_floor
+	_land_timer = maxf(_land_timer - delta, 0.0)
 
 	var moving := on_floor and movement_enabled and speed > 0.3
 	var amp_target := 0.0
-	if moving:
-		amp_target = bob_amount * clampf(speed / move_speed, 0.0, 1.8) * (1.0 if Settings.head_bob else 0.0)
+	if moving and GameSettings.head_bob:
+		amp_target = bob_amount * clampf(speed / move_speed, 0.0, 1.8)
 		_bob_phase += delta * speed * 2.3
 	_bob_amp = lerpf(_bob_amp, amp_target, minf(delta * 10.0, 1.0))
 
@@ -116,10 +119,7 @@ func _update_camera(delta: float, speed: float) -> void:
 	if _jump_timer >= 0.0:
 		crouch_target = 0.28
 	_crouch = lerpf(_crouch, crouch_target, minf(delta * 16.0, 1.0))
-	if _land_hold > 0.0:
-		_land_hold -= delta
-	else:
-		_land_dip = lerpf(_land_dip, 0.0, minf(delta * 7.0, 1.0))
+	_land_dip = lerpf(_land_dip, 0.0, minf(delta * 9.0, 1.0))
 
 	var offset := Vector3(sin(_bob_phase) * _bob_amp * 0.6, absf(sin(_bob_phase)) * _bob_amp - _bob_amp * 0.5, 0.0)
 	offset.y -= _crouch + _land_dip
@@ -127,15 +127,14 @@ func _update_camera(delta: float, speed: float) -> void:
 		offset = Vector3.ZERO
 		_crouch = 0.0
 		_land_dip = 0.0
-		_land_hold = 0.0
 	_cam_bob = _cam_bob.lerp(offset, minf(delta * 20.0, 1.0))
 	cam.position = _cam_bob
 	cam.rotation.z = lerpf(cam.rotation.z, -sin(_bob_phase) * _bob_amp * 0.25 if moving else 0.0, minf(delta * 8.0, 1.0))
 
-	var fov_target := Settings.fov + fov_extra + (sprint_fov_boost if _sprinting and speed > move_speed else 0.0)
+	var fov_target := GameSettings.fov + fov_extra + (sprint_fov_boost if _sprinting and speed > move_speed else 0.0)
 	cam.fov = lerpf(cam.fov, fov_target, minf(delta * 6.0, 1.0))
 	var local_vel := transform.basis.inverse() * velocity
-	_rig.animate(delta, speed, _sprinting, on_floor, velocity.y, _jump_timer, _land_dip, _bob_phase, movement_enabled, local_vel)
+	_rig.animate(delta, speed, _sprinting, on_floor, velocity.y, _jump_timer, clampf(_land_timer / LAND_RELEASE, 0.0, 1.0) * 0.15, _bob_phase, movement_enabled, local_vel)
 	_update_view(delta)
 
 
@@ -169,9 +168,9 @@ func _update_view(delta: float) -> void:
 func look(relative: Vector2) -> void:
 	if not look_enabled:
 		return
-	var k := mouse_sensitivity * Settings.sensitivity
-	rotate_y(-relative.x * k)
-	head.rotate_x(-relative.y * k * (-1.0 if Settings.invert_y else 1.0))
+	var sens := mouse_sensitivity * GameSettings.mouse_sens
+	rotate_y(-relative.x * sens)
+	head.rotate_x(-relative.y * sens * (-1.0 if GameSettings.invert_y else 1.0))
 	head.rotation.x = clampf(head.rotation.x, deg_to_rad(-85), deg_to_rad(85))
 
 
@@ -183,7 +182,7 @@ func _detect_double_tap(event: InputEvent) -> void:
 	if not movement_enabled or not event is InputEventKey or not event.pressed or event.echo:
 		return
 	var key: int = event.physical_keycode
-	if not Settings.is_movement_key(key):
+	if key != KEY_W and key != KEY_A and key != KEY_S and key != KEY_D:
 		return
 	var now := Time.get_ticks_msec() / 1000.0
 	if key == _last_tap_key and now - _last_tap_time <= double_tap_window:
@@ -204,3 +203,25 @@ func lock_view(pos: Vector3, yaw: float, pitch: float, allow_look := false) -> v
 func unlock_view() -> void:
 	look_enabled = true
 	movement_enabled = not PointManager.is_game_over
+
+
+func _register_input_actions() -> void:
+	var keys := {
+		"move_forward": KEY_W,
+		"move_back": KEY_S,
+		"move_left": KEY_A,
+		"move_right": KEY_D,
+		"interact": KEY_E,
+		"minigame_action": KEY_SPACE,
+		"jump": KEY_SPACE,
+		"difficulty_cycle": KEY_Q,
+		"difficulty_unlock": KEY_R,
+		"toggle_view": KEY_V,
+	}
+	for action in keys:
+		if InputMap.has_action(action):
+			continue
+		InputMap.add_action(action)
+		var ev := InputEventKey.new()
+		ev.physical_keycode = keys[action]
+		InputMap.action_add_event(action, ev)

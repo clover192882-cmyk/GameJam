@@ -3,6 +3,7 @@ extends Node
 const FX = preload("res://scripts/minigame_fx.gd")
 
 signal shot_fired(hit: bool)
+signal reload_started
 signal round_finished(won: bool, net: int, hits: int)
 signal closed
 
@@ -13,6 +14,7 @@ const SUMMARY_SECONDS := 3.0
 const TARGET_LAYER := 4
 const RANGE := 8.0
 const SC := 0.22
+const GUN_REST := Vector3(0.32, -0.28, -0.65)
 const HOLDER_POS := Vector3(0.0, 1.0, 0.2)
 const LANE_Y := [0.6, 1.9, 3.2]
 const LANE_Z := [-2.5, -3.5, -4.5]
@@ -55,6 +57,7 @@ var _lane_timers: Array[float] = [0.0, 0.7, 1.4]
 var _active := false
 var _rng := RandomNumberGenerator.new()
 var _shared := {}
+var _gun: Node3D
 
 
 func start(stall: Node3D, difficulty := 0) -> void:
@@ -69,7 +72,41 @@ func start(stall: Node3D, difficulty := 0) -> void:
 	_build_decor()
 	for i in POOL_SIZE:
 		_make_duck()
+	_build_gun()
 	_active = true
+
+
+func _build_gun() -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	_gun = Node3D.new()
+	_gun.position = GUN_REST
+	cam.add_child(_gun)
+	var rifle: Node3D = load("res://assets/models/rifle.glb").instantiate()
+	rifle.scale = Vector3.ONE * 0.55
+	rifle.rotation_degrees = Vector3(0, 0, -90)
+	rifle.position = Vector3(0, 0.04, -0.28)
+	_gun.add_child(rifle)
+
+
+func _gun_recoil() -> void:
+	if not is_instance_valid(_gun):
+		return
+	_gun.position = GUN_REST + Vector3(0, 0.02, 0.1)
+	_gun.rotation.x = 0.18
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(_gun, "position", GUN_REST, 0.14)
+	tw.tween_property(_gun, "rotation:x", 0.0, 0.14)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.8, 0.4)
+	light.light_energy = 3.0
+	light.omni_range = 5.0
+	_gun.add_child(light)
+	light.position = Vector3(0, 0, -0.9)
+	var lt := create_tween()
+	lt.tween_property(light, "light_energy", 0.0, 0.1)
+	lt.tween_callback(light.queue_free)
 
 
 func hud() -> Dictionary:
@@ -322,6 +359,7 @@ func _shoot() -> void:
 		_reload()
 		return
 	ammo -= 1
+	_gun_recoil()
 	var cam := get_viewport().get_camera_3d()
 	var from := cam.global_position
 	var sway := FX.shake_unit() * 0.012
@@ -369,9 +407,19 @@ func _reload() -> void:
 	if reloading or ammo == MAX_AMMO or not _active:
 		return
 	reloading = true
+	reload_started.emit()
+	_gun_reload_spin()
 	await get_tree().create_timer(RELOAD_TIME).timeout
 	ammo = MAX_AMMO
 	reloading = false
+
+
+func _gun_reload_spin() -> void:
+	if not is_instance_valid(_gun):
+		return
+	var tw := create_tween()
+	tw.tween_property(_gun, "rotation:x", -TAU, RELOAD_TIME * 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_callback(func(): _gun.rotation.x = 0.0)
 
 
 func _finish() -> void:
@@ -380,5 +428,7 @@ func _finish() -> void:
 	_active = false
 	round_finished.emit(net > 0, net, hits)
 	await get_tree().create_timer(SUMMARY_SECONDS).timeout
+	if is_instance_valid(_gun):
+		_gun.queue_free()
 	_holder.queue_free()
 	closed.emit()

@@ -3,6 +3,7 @@ extends Node3D
 const PauseMenu = preload("res://scripts/pause_menu.gd")
 const TouchControls = preload("res://scripts/touch_controls.gd")
 const StressFX = preload("res://scripts/stress_fx.gd")
+const WakeSequence = preload("res://scripts/wake_sequence.gd")
 
 @onready var player = $Player
 @onready var hud = $HUD
@@ -32,6 +33,12 @@ func _ready() -> void:
 	minigames.round_ended.connect(hud.set_progress_visible.bind(true))
 	player.interaction.prompt_changed.connect(hud.set_prompt)
 	player.interaction.interacted.connect(_on_interacted)
+	if WakeSequence.pending:
+		var wake := WakeSequence.new()
+		wake.player = player
+		wake.hud = hud
+		add_child(wake)
+		wake.begin()
 
 
 func _on_interacted(target: Node) -> void:

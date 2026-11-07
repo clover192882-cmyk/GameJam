@@ -3,6 +3,9 @@ shader_type spatial;
 uniform vec3 grass_a : source_color = vec3(0.07, 0.2, 0.08);
 uniform vec3 grass_b : source_color = vec3(0.16, 0.3, 0.1);
 uniform vec3 dirt : source_color = vec3(0.22, 0.17, 0.1);
+uniform vec3 fresnel_color : source_color = vec3(0.35, 0.5, 0.9);
+uniform float fresnel_power = 3.0;
+uniform float fresnel_strength = 0.55;
 
 varying vec3 world_pos;
 
@@ -44,4 +47,7 @@ void fragment() {
 	col = mix(col, dirt * (0.8 + fine * 0.4), bare * 0.7);
 	ALBEDO = col;
 	ROUGHNESS = 1.0;
+	float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), fresnel_power);
+	float shimmer = 0.75 + 0.25 * noise(p * 1.5 + TIME * 0.15);
+	EMISSION = fresnel_color * fresnel * fresnel_strength * shimmer;
 }

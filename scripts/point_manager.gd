@@ -13,6 +13,24 @@ var health := MAX_HEALTH
 var round_start_points := 0
 
 
+const CHEAT_CODE := [KEY_M, KEY_O, KEY_N, KEY_E, KEY_Y]
+const CHEAT_POINTS := 200
+
+var _cheat_index := 0
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if event.keycode == CHEAT_CODE[_cheat_index]:
+		_cheat_index += 1
+		if _cheat_index == CHEAT_CODE.size():
+			_cheat_index = 0
+			add_points(CHEAT_POINTS)
+	else:
+		_cheat_index = 1 if event.keycode == CHEAT_CODE[0] else 0
+
+
 func reset() -> void:
 	points = STARTING_POINTS
 	health = MAX_HEALTH
@@ -61,9 +79,8 @@ func finish_round() -> Dictionary:
 		"health_lost": health_lost, "game_over": is_game_over}
 
 
-# Spending must leave at least 1 point, so buying an unlock can never cause Game Over.
 func can_afford(cost: int) -> bool:
-	return not is_game_over and cost > 0 and points - cost >= 1
+	return not is_game_over and cost > 0 and points >= cost
 
 
 func spend(cost: int) -> bool:

@@ -22,7 +22,7 @@ func _ready() -> void:
 
 	_info = _make_label("", 24)
 	UIKit.pill(_info)
-	_place(_info, 0.5, 1.0, -400, -204, 400, -164)
+	_place(_info, 1.0, 0.0, -576, 16, -16, 60)
 	root.add_child(_info)
 
 	_hint = _make_label("Click to shoot   |   R or right click to reload   |   E to give up", 20)
@@ -32,7 +32,7 @@ func _ready() -> void:
 
 	_result = _make_label("", 40)
 	_place(_result, 0.5, 0.5, -320, -90, 320, 90)
-	_result.add_theme_stylebox_override("normal", UIKit.panel_style(Color(0.04, 0.07, 0.14, 0.92), UIKit.GOLD, 22, 24))
+	_result.add_theme_stylebox_override("normal", UIKit.panel_style(UIKit.INK, UIKit.TRIM, 12, 24))
 	_result.hide()
 	root.add_child(_result)
 

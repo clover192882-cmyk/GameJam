@@ -3,6 +3,7 @@ extends Node
 const UIKit = preload("res://scripts/ui_kit.gd")
 const GameOverScene = preload("res://scripts/game_over_scene.gd")
 const Credits = preload("res://scripts/credits.gd")
+const EscapeCutscene = preload("res://scripts/escape_cutscene.gd")
 const MENU_SCENE := "res://scenes/menu.tscn"
 
 var player: CharacterBody3D
@@ -34,7 +35,16 @@ func _on_escaped() -> void:
 	if sequence_running:
 		return
 	_begin_sequence()
-	await get_tree().create_timer(1.0).timeout
+	var car := get_tree().current_scene.find_child("EscapeCar", true, false) as Node3D
+	if car:
+		var cutscene := EscapeCutscene.new()
+		add_child(cutscene)
+		cutscene.player = player
+		cutscene.car = car
+		cutscene.begin()
+		await cutscene.finished
+	else:
+		await get_tree().create_timer(1.0).timeout
 	var credits := Credits.new()
 	add_child(credits)
 	await credits.finished
@@ -64,7 +74,7 @@ func _show_end_screen(title: String, subtitle: String, color: Color) -> void:
 
 func _restart() -> void:
 	SaveManager.new_game()
-	get_tree().reload_current_scene()
+	get_tree().change_scene_to_file("res://scenes/intro.tscn")
 
 
 func _go_home() -> void:

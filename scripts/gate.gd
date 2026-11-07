@@ -67,8 +67,8 @@ func get_prompt() -> String:
 	if unlocked:
 		return "The gate is open - step outside to leave"
 	if PointManager.can_afford(StallManager.GATE_COST):
-		return "[%s] Unlock the gate for %d points" % [Settings.key_name("interact"), StallManager.GATE_COST]
-	return "The gate is locked - needs %d points" % (StallManager.GATE_COST + 1)
+		return "[E] Unlock the gate for %d points" % StallManager.GATE_COST
+	return "The gate is locked - needs %d points" % StallManager.GATE_COST
 
 
 func interact() -> void:

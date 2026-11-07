@@ -5,8 +5,8 @@ signal stall_completed(id: String)
 signal gate_opened
 signal escaped
 
-const UNLOCK_COSTS := {"dart": 0, "goldfish": 60, "cork": 120}
-const GATE_COST := 200
+const UNLOCK_COSTS := {"dart": 0, "goldfish": 150, "cork": 300}
+const GATE_COST := 1000
 
 var gate_open := false
 var has_escaped := false
