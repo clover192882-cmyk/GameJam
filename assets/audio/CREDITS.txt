@@ -1,0 +1,8 @@
+All audio in this folder is CC0 (public domain). Attribution is not required but is given here.
+
+balloon_pop.ogg, balloon_inflate.ogg - "Balloon Sounds"     https://opengameart.org/content/balloon-sounds
+carnival_music.ogg                    - "Carnival Rides"      https://opengameart.org/content/carnival-rides
+dart_throw*.wav                       - "Swishes Sound Pack"  https://opengameart.org/content/swishes-sound-pack (swish-9, swish-7)
+dart_hit_wood*.wav                    - "Thwack Sounds" by Jordan Irwin (AntumDeluge)  https://opengameart.org/content/thwack-sounds (thwack-03, thwack-02)
+
+In game, carnival_music.ogg is played at 0.62x pitch for the horror theme (modified).

@@ -1,0 +1,8 @@
+Darts by Jarlan Perez (https://poly.pizza/m/eab-9L4WRWZ)
+Licensed under Creative Commons Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/)
+Modified: one dart was extracted from the original pack of five, re-oriented and rescaled (dart_single.res).
+
+The same credits are shown in-game on the Credits screen.
+
+fish_poly.glb, goldfish_poly.glb, fish_quaternius.glb (Goldfish Scooping stall): copied from the ye_fish_duck package.
+Names suggest Poly Pizza / Quaternius origin, but the package carried no license or author text; confirm the license before release.

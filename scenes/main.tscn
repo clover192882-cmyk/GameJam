@@ -1,0 +1,91 @@
+[gd_scene format=3 uid="uid://841m51bbyou"]
+
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/stall.tscn" id="2_stall"]
+[ext_resource type="Script" uid="uid://d0uqweoc4kxb6" path="res://scripts/carnival.gd" id="3_carnival"]
+[ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="4_hud"]
+[ext_resource type="Script" uid="uid://dja7hhb8funm5" path="res://scripts/main.gd" id="5_main"]
+[ext_resource type="Script" uid="uid://c4hb8aetcqqxb" path="res://scripts/minigame_manager.gd" id="6_manager"]
+[ext_resource type="Script" uid="uid://dv6t85bjwe166" path="res://scripts/game_manager.gd" id="7_game"]
+[ext_resource type="Script" uid="uid://4bd4151l808f" path="res://scripts/audio_manager.gd" id="8_audio"]
+[ext_resource type="Shader" uid="uid://cpmyechwlhqsv" path="res://shaders/night_sky.gdshader" id="9_sky"]
+
+[sub_resource type="ShaderMaterial" id="Sky_night"]
+shader = ExtResource("9_sky")
+
+[sub_resource type="Sky" id="Sky_1"]
+sky_material = SubResource("Sky_night")
+process_mode = 0
+radiance_size = 0
+
+[sub_resource type="Environment" id="Environment_dark"]
+background_mode = 2
+background_color = Color(0.02, 0.01, 0.04, 1)
+sky = SubResource("Sky_1")
+ambient_light_source = 3
+ambient_light_color = Color(0.45, 0.55, 0.8, 1)
+ambient_light_energy = 0.6
+tonemap_mode = 2
+tonemap_white = 6.0
+glow_enabled = true
+glow_intensity = 0.5
+glow_strength = 0.9
+glow_bloom = 0.08
+glow_hdr_threshold = 1.1
+fog_enabled = true
+fog_light_color = Color(0.2, 0.27, 0.42, 1)
+fog_density = 0.008
+fog_sky_affect = 0.0
+adjustment_enabled = true
+adjustment_contrast = 1.08
+adjustment_saturation = 1.12
+
+[node name="Main" type="Node3D" unique_id=810423906]
+script = ExtResource("5_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=293860068]
+environment = SubResource("Environment_dark")
+
+[node name="Moon" type="DirectionalLight3D" parent="." unique_id=349151999]
+transform = Transform3D(0.766, 0.2, -0.61, 0, 0.95, 0.31, 0.643, -0.238, 0.727, 0, 10, 0)
+light_color = Color(0.7, 0.8, 1, 1)
+light_energy = 0.6
+shadow_enabled = true
+shadow_blur = 1.5
+directional_shadow_mode = 1
+directional_shadow_max_distance = 40.0
+
+[node name="Carnival" type="Node3D" parent="." unique_id=1891653495]
+script = ExtResource("3_carnival")
+
+[node name="StallDart" parent="." unique_id=1010076955 instance=ExtResource("2_stall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 0, -4)
+stall_name = "Dart Balloon"
+color = Color(0.85, 0.2, 0.25, 1)
+stall_id = "dart"
+
+[node name="StallGoldfish" parent="." unique_id=1212369985 instance=ExtResource("2_stall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -4)
+stall_name = "Goldfish Scooping"
+color = Color(0.2, 0.5, 0.85, 1)
+stall_id = "goldfish"
+
+[node name="StallCork" parent="." unique_id=898449317 instance=ExtResource("2_stall")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, -4)
+stall_name = "Cork Gun Gallery"
+color = Color(0.25, 0.7, 0.35, 1)
+stall_id = "cork"
+
+[node name="MinigameManager" type="Node" parent="." unique_id=654657653]
+script = ExtResource("6_manager")
+
+[node name="GameManager" type="Node" parent="." unique_id=1445090346]
+script = ExtResource("7_game")
+
+[node name="AudioManager" type="Node" parent="." unique_id=1385129770]
+script = ExtResource("8_audio")
+
+[node name="HUD" parent="." unique_id=85427461 instance=ExtResource("4_hud")]
+
+[node name="Player" parent="." unique_id=1480742401 instance=ExtResource("1_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 5)
